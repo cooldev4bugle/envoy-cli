@@ -33,7 +33,13 @@ def extra_keys(data_a: dict, data_b: dict) -> List[str]:
 
 
 def summary(diff: Dict[str, Tuple]) -> Dict[str, int]:
+    """Return counts of keys only in a, only in b, and changed in both."""
     only_in_a = sum(1 for v in diff.values() if v[1] is None)
     only_in_b = sum(1 for v in diff.values() if v[0] is None)
     changed = len(diff) - only_in_a - only_in_b
     return {"only_in_a": only_in_a, "only_in_b": only_in_b, "changed": changed}
+
+
+def common_keys(data_a: dict, data_b: dict) -> List[str]:
+    """Keys present in both a and b, regardless of value."""
+    return sorted(set(data_a) & set(data_b))

@@ -1,47 +1,38 @@
-"""High-level vault operations combining crypto + env_file + storage."""
+"""High-level vault operations: push, pull, list, remove, diff."""
 
-from envoy import crypto, env_file, storage
-
-
-def push(project: str, environment: str, filepath: str, passphrase: str) -> None:
-    """Read a .env file, encrypt it, and store it."""
-    raw = env_file.read(filepath)
-    ciphertext = crypto.encrypt(raw, passphrase)
-    storage.save(project, environment, ciphertext)
+from envoy import storage, crypto, env_file
+from envoy.lock import assert_unlocked
 
 
-def pull(project: str, environment: str, filepath: str, passphrase: str) -> None:
-    """Load encrypted env, decrypt it, and write to a .env file."""
-    ciphertext = storage.load(project, environment)
+def push(project: str, env: str, passphrase: str, data: dict) -> None:
+    assert_unlocked(project, env)
+    plaintext = env_file.serialize(data)
+    ciphertext = crypto.encrypt(plaintext, passphrase)
+    storage.save(project, env, ciphertext)
+
+
+def pull(project: str, env: str, passphrase: str) -> dict:
+    ciphertext = storage.load(project, env)
     plaintext = crypto.decrypt(ciphertext, passphrase)
-    env_file.write(filepath, plaintext)
+    return env_file.parse(plaintext)
 
 
-def list_envs(project: str) -> list:
-    """List all environments stored for a project."""
+def list_envs(project: str) -> list[str]:
     return storage.list_environments(project)
 
 
-def remove(project: str, environment: str) -> bool:
-    """Remove a stored environment."""
-    return storage.delete(project, environment)
+def remove(project: str, env: str) -> None:
+    assert_unlocked(project, env)
+    storage.delete(project, env)
 
 
-def diff(project: str, environment: str, filepath: str, passphrase: str) -> dict:
-    """Compare local .env file with stored version.
-
-    Returns dict with 'added', 'removed', 'changed' keys.
-    """
-    ciphertext = storage.load(project, environment)
-    remote_text = crypto.decrypt(ciphertext, passphrase)
-    remote = env_file.parse(remote_text)
-    local = env_file.parse(env_file.read(filepath))
-
-    added = {k: local[k] for k in local if k not in remote}
-    removed = {k: remote[k] for k in remote if k not in local}
+def diff(project: str, env: str, passphrase: str, local: dict) -> dict:
+    remote = pull(project, env, passphrase)
+    added = {k: v for k, v in local.items() if k not in remote}
+    removed = {k: v for k, v in remote.items() if k not in local}
     changed = {
-        k: {"local": local[k], "remote": remote[k]}
+        k: (remote[k], local[k])
         for k in local
-        if k in remote and local[k] != remote[k]
+        if k in remote and remote[k] != local[k]
     }
     return {"added": added, "removed": removed, "changed": changed}

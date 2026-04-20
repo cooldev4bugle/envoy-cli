@@ -1,35 +1,38 @@
-"""CLI commands for viewing env history."""
 import click
-from envoy.history import get_history, clear_history
+from envoy import history
 
 
 @click.group(name="history")
 def history_group():
-    """View and manage push/pull history."""
+    """View and manage push/pull history for environments."""
+    pass
 
 
-@history_group.command("log")
+@history_group.command(name="log")
 @click.argument("project")
-@click.option("--env", default=None, help="Filter by environment name")
-@click.option("--action", default=None, help="Filter by action (push/pull)")
-@click.option("--limit", default=20, show_default=True, help="Max entries to show")
-def cmd_log(project: str, env, action, limit: int):
-    """Show history for a project."""
-    entries = get_history(project, env=env, action=action, limit=limit)
-    if not entries:
+@click.option("--env", default=None, help="Filter by environment name.")
+@click.option("--action", default=None, help="Filter by action (push/pull/delete).")
+@click.option("--limit", default=20, show_default=True, help="Max number of entries to show.")
+def cmd_log(project, env, action, limit):
+    """Show history log for a project."""
+    events = history.get_history(project, env=env, action=action)
+    if not events:
         click.echo("No history found.")
         return
-    for e in entries:
-        note = f"  ({e['note']})" if e.get("note") else ""
-        click.echo(f"[{e['ts']}] {e['action']:6s}  {e['env']}{note}")
+    for entry in events[-limit:]:
+        ts = entry.get("timestamp", "?")
+        act = entry.get("action", "?")
+        ev = entry.get("env", "?")
+        user = entry.get("user", "unknown")
+        click.echo(f"[{ts}] {act.upper():6s}  env={ev}  user={user}")
 
 
-@history_group.command("clear")
+@history_group.command(name="clear")
 @click.argument("project")
-@click.option("--yes", is_flag=True, help="Skip confirmation")
-def cmd_clear(project: str, yes: bool):
-    """Clear history for a project."""
+@click.option("--yes", is_flag=True, help="Skip confirmation prompt.")
+def cmd_clear(project, yes):
+    """Clear history log for a project."""
     if not yes:
         click.confirm(f"Clear all history for '{project}'?", abort=True)
-    clear_history(project)
+    history.clear_history(project)
     click.echo(f"History cleared for '{project}'.")

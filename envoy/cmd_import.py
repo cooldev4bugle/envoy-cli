@@ -1,64 +1,126 @@
-"""CLI commands for importing env variables from external sources."""
+"""CLI commands for importing .env variables from external formats."""
+
+import json
+import sys
+
 import click
+
 from envoy import vault
-from envoy.import_env import from_shell, from_json, from_docker_env, merge_into
 from envoy.cli import get_passphrase
+from envoy.import_env import from_shell, from_json, from_docker_env, merge_into
 
 
-@click.group("import")
+@click.group(name="import")
 def import_group():
-    """Import env variables from external sources."""
+    """Import environment variables from external sources."""
 
 
 @import_group.command("shell")
 @click.argument("project")
 @click.argument("env")
-@click.option("--keys", "-k", multiple=True, help="Specific keys to import")
-@click.option("--overwrite", is_flag=True, default=False)
-def cmd_shell(project, env, keys, overwrite):
-    """Import variables from the current shell environment."""
+@click.option("--file", "filepath", default=None, help="Path to shell export file (stdin if omitted).")
+@click.option("--keys", default=None, help="Comma-separated list of keys to import.")
+@click.option("--overwrite", is_flag=True, default=False, help="Overwrite existing keys.")
+def cmd_shell(project, env, filepath, keys, overwrite):
+    """Import variables from a shell export file or stdin."""
+    filter_keys = [k.strip() for k in keys.split(",")] if keys else None
+
+    if filepath:
+        with open(filepath, "r") as f:
+            text = f.read()
+    else:
+        if sys.stdin.isatty():
+            click.echo("Reading from stdin... (pipe data or use --file)")
+        text = sys.stdin.read()
+
+    try:
+        imported = from_shell(text, filter_keys=filter_keys)
+    except ValueError as e:
+        click.echo(f"Error parsing shell input: {e}", err=True)
+        raise SystemExit(1)
+
     passphrase = get_passphrase()
-    incoming = from_shell(list(keys) if keys else None)
+
     try:
         existing = vault.pull(project, env, passphrase)
     except FileNotFoundError:
         existing = {}
-    merged = merge_into(existing, incoming, overwrite=overwrite)
+
+    merged = merge_into(existing, imported, overwrite=overwrite)
     vault.push(project, env, merged, passphrase)
-    click.echo(f"Imported {len(incoming)} variable(s) into {project}/{env}.")
+
+    click.echo(f"Imported {len(imported)} key(s) into {project}/{env}.")
 
 
 @import_group.command("json")
 @click.argument("project")
 @click.argument("env")
-@click.argument("file", type=click.Path(exists=True))
-@click.option("--overwrite", is_flag=True, default=False)
-def cmd_json(project, env, file, overwrite):
-    """Import variables from a JSON file."""
+@click.option("--file", "filepath", default=None, help="Path to JSON file (stdin if omitted).")
+@click.option("--keys", default=None, help="Comma-separated list of keys to import.")
+@click.option("--overwrite", is_flag=True, default=False, help="Overwrite existing keys.")
+def cmd_json(project, env, filepath, keys, overwrite):
+    """Import variables from a JSON object file or stdin."""
+    filter_keys = [k.strip() for k in keys.split(",")] if keys else None
+
+    if filepath:
+        with open(filepath, "r") as f:
+            text = f.read()
+    else:
+        if sys.stdin.isatty():
+            click.echo("Reading from stdin... (pipe data or use --file)")
+        text = sys.stdin.read()
+
+    try:
+        imported = from_json(text, filter_keys=filter_keys)
+    except (ValueError, json.JSONDecodeError) as e:
+        click.echo(f"Error parsing JSON input: {e}", err=True)
+        raise SystemExit(1)
+
     passphrase = get_passphrase()
-    incoming = from_json(file)
+
     try:
         existing = vault.pull(project, env, passphrase)
     except FileNotFoundError:
         existing = {}
-    merged = merge_into(existing, incoming, overwrite=overwrite)
+
+    merged = merge_into(existing, imported, overwrite=overwrite)
     vault.push(project, env, merged, passphrase)
-    click.echo(f"Imported {len(incoming)} variable(s) from {file} into {project}/{env}.")
+
+    click.echo(f"Imported {len(imported)} key(s) into {project}/{env}.")
 
 
 @import_group.command("docker")
 @click.argument("project")
 @click.argument("env")
-@click.argument("file", type=click.Path(exists=True))
-@click.option("--overwrite", is_flag=True, default=False)
-def cmd_docker(project, env, file, overwrite):
-    """Import variables from a Docker env-file."""
+@click.option("--file", "filepath", default=None, help="Path to docker --env-file (stdin if omitted).")
+@click.option("--keys", default=None, help="Comma-separated list of keys to import.")
+@click.option("--overwrite", is_flag=True, default=False, help="Overwrite existing keys.")
+def cmd_docker(project, env, filepath, keys, overwrite):
+    """Import variables from a Docker-style env file (KEY=VALUE lines)."""
+    filter_keys = [k.strip() for k in keys.split(",")] if keys else None
+
+    if filepath:
+        with open(filepath, "r") as f:
+            text = f.read()
+    else:
+        if sys.stdin.isatty():
+            click.echo("Reading from stdin... (pipe data or use --file)")
+        text = sys.stdin.read()
+
+    try:
+        imported = from_docker_env(text, filter_keys=filter_keys)
+    except ValueError as e:
+        click.echo(f"Error parsing Docker env input: {e}", err=True)
+        raise SystemExit(1)
+
     passphrase = get_passphrase()
-    incoming = from_docker_env(file)
+
     try:
         existing = vault.pull(project, env, passphrase)
     except FileNotFoundError:
         existing = {}
-    merged = merge_into(existing, incoming, overwrite=overwrite)
+
+    merged = merge_into(existing, imported, overwrite=overwrite)
     vault.push(project, env, merged, passphrase)
-    click.echo(f"Imported {len(incoming)} variable(s) from {file} into {project}/{env}.")
+
+    click.echo(f"Imported {len(imported)} key(s) into {project}/{env}.")

@@ -41,5 +41,6 @@ def cmd_list_locked(project: str):
     if not locked:
         click.echo("No locked environments.")
     else:
+        click.echo(f"Locked environments for {project}:")
         for env in locked:
-            click.echo(f"  🔒 {env}")
+            click.echo(f"  \U0001f512 {env}")

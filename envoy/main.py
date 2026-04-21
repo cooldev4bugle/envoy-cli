@@ -1,7 +1,4 @@
-"""Entry point for the envoy CLI."""
-
 import click
-
 from envoy.cli import get_passphrase, cmd_push, cmd_pull, cmd_list, cmd_remove
 from envoy.cmd_audit import audit_group
 from envoy.cmd_sync import sync_group
@@ -13,14 +10,16 @@ from envoy.cmd_search import search_group
 from envoy.cmd_compare import compare_group
 from envoy.cmd_lock import lock_group
 from envoy.cmd_tag import tag_group
+from envoy.cmd_export import export_group
 from envoy.cmd_snapshot import snapshot_group
 from envoy.cmd_import import import_group
 from envoy.cmd_pin import pin_group
-from envoy.cmd_export import export_group
-from envoy.cmd_reminder import reminder_group
-from envoy.cmd_access import access_group
-from envoy.cmd_quota import quota_group
 from envoy.cmd_webhook import webhook_group
+from envoy.cmd_dependency import dependency_group
+from envoy.cmd_quota import quota_group
+from envoy.cmd_access import access_group
+from envoy.cmd_reminder import reminder_group
+from envoy.cmd_schema import schema_group
 
 
 @click.group()
@@ -42,14 +41,16 @@ cli.add_command(search_group)
 cli.add_command(compare_group)
 cli.add_command(lock_group)
 cli.add_command(tag_group)
+cli.add_command(export_group)
 cli.add_command(snapshot_group)
 cli.add_command(import_group)
 cli.add_command(pin_group)
-cli.add_command(export_group)
-cli.add_command(reminder_group)
-cli.add_command(access_group)
-cli.add_command(quota_group)
 cli.add_command(webhook_group)
+cli.add_command(dependency_group)
+cli.add_command(quota_group)
+cli.add_command(access_group)
+cli.add_command(reminder_group)
+cli.add_command(schema_group)
 
 
 if __name__ == "__main__":

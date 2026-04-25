@@ -75,3 +75,13 @@ def test_multiple_projects_isolated():
     ns_mod.assign("app2", "dev", "staging")
     assert ns_mod.get_namespace("app1", "dev") == "development"
     assert ns_mod.get_namespace("app2", "dev") == "staging"
+
+
+def test_assign_env_to_different_namespaces():
+    """An env reassigned to a new namespace should only appear in the new one."""
+    ns_mod.assign("myapp", "dev", "development")
+    ns_mod.assign("myapp", "dev", "staging")
+    # dev should now be in staging
+    assert "dev" in ns_mod.envs_in_namespace("myapp", "staging")
+    # dev should no longer be in development after reassignment
+    assert "dev" not in ns_mod.envs_in_namespace("myapp", "development")
